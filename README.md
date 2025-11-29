@@ -255,3 +255,183 @@ This project follows the hackathon guidelines:
 - Clean architecture for adding Vision/STT/RAG next
 
 Enjoy hacking! 🧠⚡
+# TrackMyFood 🍎🔥  
+An **AI‑powered on‑device diet & fitness companion** built with **React Native** + **Cactus Compute**.  
+TrackMyFood helps you **photograph food**, **log meals**, **analyze macros**, and **view daily calorie summaries** — all **offline**, fully **on your device**.
+
+Built for the **Cactus Mobile Agent Hackathon**.
+
+---
+
+# 🚀 Features
+
+### 🍽️ Food Logging (Vision AI)
+- Take photos of meals  
+- On‑device LLM analyzes food  
+- Extracts estimated calories & macros  
+- Fallback macro & calorie estimates (100–400 kcal)
+
+### 🎤 Voice Notes (Speech-to-Text)
+- Record voice notes about meals  
+- Whisper‑small runs locally via Cactus STT  
+- Transcribe and save as food memories
+
+### 📊 Daily Summary Dashboard
+- Calorie intake vs calorie burn  
+- Macro breakdown (protein / carbs / fats)  
+- Streak tracking + motivational badges  
+- Apple Health–style aesthetic
+
+### 🧠 Local Memory Store (RAG-ready)
+- All meals saved locally (SQLite soon)  
+- Rewrite prompts & summaries stored  
+- Will support embeddings + retrieval queries like:  
+  **“How many calories have I eaten today?”**
+
+### 🔒 100% On‑Device & Private
+No cloud.  
+No server.  
+Everything stays on your iPhone.
+
+---
+
+# 🛠 Requirements
+
+- Node.js 18+  
+- Xcode (for iOS builds on Mac)  
+- CocoaPods  
+- iOS Simulator or physical device  
+- Cactus SDK installed locally
+
+---
+
+# 📦 Installation
+
+Clone the repo:
+
+```sh
+git clone <your-repo-url>
+cd TrackMyFood
+```
+
+Install dependencies:
+
+```sh
+npm install
+npm install cactus-react-native react-native-nitro-modules
+npm install @react-native-async-storage/async-storage
+```
+
+Install iOS pods:
+
+```sh
+cd ios
+pod install
+cd ..
+```
+
+---
+
+# ▶️ Running the App
+
+Start Metro:
+
+```sh
+npm start
+```
+
+Then:
+
+```sh
+npm run ios
+```
+
+The app will launch in the simulator or on your connected iPhone.
+
+---
+
+# 📱 Using TrackMyFood
+
+### 🍽️ Log Meals with Vision
+1. Tap **Vision Notes**
+2. Take a photo of your food  
+3. App analyzes macros & calories  
+4. Saves the meal automatically  
+
+### 🎤 Log Meals via Voice
+1. Go to **Voice Notes**  
+2. Tap the 🎙️ mic to record  
+3. Whisper STT transcribes locally  
+4. Save the note as a food memory  
+
+### 📊 View Daily Summary
+- Tap **Daily Summary & Trends**  
+- See:  
+  - Intake vs burn  
+  - Macro pie/stacks  
+  - Net calories  
+  - Streaks & badges  
+
+### 🧠 Ask TrackMyFood (Health Plan)
+In the Home Screen:
+
+Default prompt:  
+**“Using my step count & meals today, make me a calorie‑deficit plan to lose 1kg/month.”**
+
+TrackMyFood responds and stores your plan.
+
+---
+
+# 📁 Project Structure
+
+```
+src/
+  ai/                  # (coming soon) embeddings + local RAG
+  db/
+    memoryDb.ts        # memory storage
+  screens/
+    HomeScreen.tsx
+    VisionNotesScreen.tsx
+    VoiceNotesScreen.tsx
+    SummaryScreen.tsx
+  navigation/
+    RootNavigator.tsx
+```
+
+---
+
+# 🔧 Troubleshooting
+
+### Model download stuck?
+Run:
+```sh
+npm start --reset-cache
+```
+
+### iOS build error?
+```sh
+cd ios
+pod install
+cd ..
+```
+
+### App crashing after camera?
+Ensure `NSCameraUsageDescription` exists in Info.plist.
+
+---
+
+# 🏆 Hackathon Notes
+
+TrackMyFood follows hackathon requirements:
+
+- On-device **Vision AI**
+- On-device **Speech-to-Text**
+- Offline-first architecture
+- Uses small, fast **Qwen 0.6** and **whisper-small**
+- Beautiful, production-level UI with emoji interactions
+- Summary analytics dashboard
+
+---
+
+# 📜 License
+MIT

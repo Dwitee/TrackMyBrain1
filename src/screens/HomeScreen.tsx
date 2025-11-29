@@ -1,5 +1,18 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, Button, StyleSheet, TextInput, ScrollView, TouchableOpacity } from 'react-native';
+import React, { useEffect, useState, useRef } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TextInput,
+  ScrollView,
+  TouchableOpacity,
+  Animated,
+  PanResponder,
+  Dimensions,
+  Keyboard,
+  TouchableWithoutFeedback,
+} from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { useCactusLM } from 'cactus-react-native';
 import { initDb, insertMemory, getRecentMemories, getAllMemories, type Memory } from '../db/memoryDb';
 
@@ -18,15 +31,46 @@ function cosineSim(a: number[], b: number[]): number {
 }
 
 export default function HomeScreen() {
+  const navigation = useNavigation<any>();
   // useCactusLM will manage state for us (tip #3 from hackathon)
   const cactusLM = useCactusLM({
     // small model for speed while prototyping (tip #2)
     model: 'qwen3-0.6',
   });
 
-  const [userInput, setUserInput] = useState('What is TrackMyBrain?');
+  const [userInput, setUserInput] = useState(
+    "Using my health data from Fitness app, make me a calorie deficit plan to lose 1 kg per month."
+  );
   const [answer, setAnswer] = useState('');
   const [memories, setMemories] = useState<Memory[]>([]);
+
+  const screenHeight = Dimensions.get('window').height;
+  const sheetMinHeight = 140;
+  const sheetMaxHeight = screenHeight - 140;
+
+  const sheetHeight = useRef(new Animated.Value(sheetMinHeight)).current;
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_, gestureState) =>
+        Math.abs(gestureState.dy) > 10,
+      onPanResponderMove: (_, gestureState) => {
+        const nextHeight = sheetMinHeight - gestureState.dy;
+        if (nextHeight >= sheetMinHeight && nextHeight <= sheetMaxHeight) {
+          sheetHeight.setValue(nextHeight);
+        }
+      },
+      onPanResponderRelease: (_, gestureState) => {
+        const nextHeight = sheetMinHeight - gestureState.dy;
+        const mid = (sheetMinHeight + sheetMaxHeight) / 2;
+        const finalHeight = nextHeight > mid ? sheetMaxHeight : sheetMinHeight;
+        Animated.spring(sheetHeight, {
+          toValue: finalHeight,
+          useNativeDriver: false,
+        }).start();
+      },
+    })
+  ).current;
 
   useEffect(() => {
     initDb();
@@ -69,7 +113,7 @@ export default function HomeScreen() {
       messages: [
         {
           role: 'user',
-          content: userInput || 'What is TrackMyBrain?',
+          content: userInput || "Using my health data from Fitness app, make me a calorie deficit plan to lose 1 kg per month. It should show a message saying 'Your plan is ready' and keep taking photos of the food I eat.",
         },
       ],
     });
@@ -179,117 +223,383 @@ ${context}
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>TrackMyBrain 🧠</Text>
-      <Text style={styles.subtitle}>Local, private memory assistant using Cactus.</Text>
+    <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+      <View style={styles.container}>
+        <View style={styles.mainContent}>
+          <Text style={styles.title}>TrackMyFood 🥗</Text>
+          <Text style={styles.subtitle}>
+            Local, private diet & fitness coach powered by Cactus.
+          </Text>
 
-      {cactusLM.isDownloading && (
-        <Text style={styles.status}>
-          Downloading model ({cactusLM.model}):{' '}
-          {Math.round(cactusLM.downloadProgress * 100)}%
-        </Text>
-      )}
+          {cactusLM.isDownloading && (
+            <Text style={styles.status}>
+              Downloading model ({cactusLM.model}):{' '}
+              {Math.round(cactusLM.downloadProgress * 100)}%
+            </Text>
+          )}
 
-      {!cactusLM.isDownloading && !cactusLM.isDownloaded && (
-        <Text style={styles.status}>
-          Preparing model... tap "Download" in dev tools if needed.
-        </Text>
-      )}
+          {!cactusLM.isDownloading && !cactusLM.isDownloaded && (
+            <Text style={styles.status}>
+              Preparing model... it will download on first use.
+            </Text>
+          )}
 
-      <TextInput
-        style={styles.input}
-        value={userInput}
-        onChangeText={setUserInput}
-        placeholder="Ask TrackMyBrain anything..."
-      />
+          <View style={styles.inputRow}>
+            <TextInput
+              style={styles.input}
+              value={userInput}
+              onChangeText={setUserInput}
+              placeholder="🎯 Tell TrackMyFood your goal..."
+              multiline
+            />
+            <TouchableOpacity
+              style={styles.iconButton}
+              onPress={() => {
+                // Placeholder for future voice input
+              }}
+            >
+              <Text style={styles.iconText}>🎙️</Text>
+            </TouchableOpacity>
+          </View>
 
-      <Button
-        title={
-          cactusLM.isDownloaded
-            ? 'Ask TrackMyBrain'
-            : 'Model downloading...'
-        }
-        onPress={handleAsk}
-        disabled={!cactusLM.isDownloaded}
-      />
-
-      <View style={{ height: 8 }} />
-
-      <Button
-        title="Ask from Memories"
-        onPress={handleAskFromMemories}
-        disabled={!cactusLM.isDownloaded}
-      />
-
-      <TouchableOpacity style={styles.saveButton} onPress={handleSaveMemory}>
-        <Text style={styles.saveButtonText}>Save as Memory</Text>
-      </TouchableOpacity>
-
-      <ScrollView style={styles.answerBox}>
-        <Text style={styles.answerLabel}>Answer:</Text>
-        <Text style={styles.answerText}>{answer || 'No answer yet.'}</Text>
-      </ScrollView>
-
-      <Text style={styles.timelineTitle}>Recent Memories</Text>
-      <ScrollView style={styles.timeline}>
-        {memories.length === 0 ? (
-          <Text style={styles.empty}>No memories yet. Save one above.</Text>
-        ) : (
-          memories.map(m => (
-            <View key={m.id} style={styles.memoryCard}>
-              <Text style={styles.memoryTime}>
-                {new Date(m.createdAt).toLocaleTimeString()}
+          <View style={styles.primaryButtonsRow}>
+            <TouchableOpacity
+              style={
+                cactusLM.isDownloaded
+                  ? styles.primaryButton
+                  : styles.primaryButtonDisabled
+              }
+              onPress={handleAsk}
+              disabled={!cactusLM.isDownloaded}
+            >
+              <Text style={styles.primaryButtonText}>
+                ✨ Generate My Plan
               </Text>
-              <Text style={styles.memorySummary}>{m.summary}</Text>
-              <Text style={styles.memoryRaw} numberOfLines={2}>
-                {m.rawText}
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={
+                cactusLM.isDownloaded
+                  ? styles.secondaryButton
+                  : styles.secondaryButtonDisabled
+              }
+              onPress={handleAskFromMemories}
+              disabled={!cactusLM.isDownloaded}
+            >
+              <Text style={styles.secondaryButtonText}>
+                🧾 Ask Using My Food Log
               </Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.navRow}>
+            <TouchableOpacity
+              style={styles.navButton}
+              onPress={() => navigation.navigate('VisionNotes')}
+            >
+              <Text style={styles.navButtonText}>📸 Log Today&apos;s Meals</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.navButton}
+              onPress={() => navigation.navigate('VoiceNotes')}
+            >
+              <Text style={styles.navButtonText}>🎤 Voice Notes</Text>
+            </TouchableOpacity>
+          </View>
+
+          <TouchableOpacity style={styles.saveButton} onPress={handleSaveMemory}>
+            <Text style={styles.saveButtonText}>💾 Save This as Note</Text>
+          </TouchableOpacity>
+
+          <View style={styles.answerBox}>
+            <View style={styles.answerHeaderRow}>
+              <Text style={styles.answerLabel}>Assistant</Text>
+              <TouchableOpacity
+                style={styles.iconButtonSmall}
+                onPress={() => {
+                  // Placeholder for future TTS playback
+                }}
+              >
+                <Text style={styles.iconText}>🔊</Text>
+              </TouchableOpacity>
             </View>
-          ))
-        )}
-      </ScrollView>
-    </View>
+            <ScrollView style={styles.answerScroll}>
+              <Text style={styles.answerText}>
+                {answer ||
+                  'Your plan is not generated yet. Tell TrackMyFood your goal above.'}
+              </Text>
+            </ScrollView>
+          </View>
+        </View>
+
+        <Animated.View
+          style={[styles.bottomSheet, { height: sheetHeight }]}
+          {...panResponder.panHandlers}
+        >
+          <View style={styles.sheetHandleContainer}>
+            <View style={styles.sheetHandle} />
+          </View>
+          <TouchableOpacity
+            style={[styles.navButton, { marginTop: 8 }]}
+            onPress={() => navigation.navigate('Summary')}
+          >
+            <Text style={styles.navButtonText}>📊 Daily Summary &amp; Trends</Text>
+          </TouchableOpacity>
+          <Text style={styles.timelineTitle}>Today&apos;s memories</Text>
+          <ScrollView style={styles.timeline}>
+            {memories.length === 0 ? (
+              <Text style={styles.empty}>No memories yet. Save one above.</Text>
+            ) : (
+              memories.map(m => (
+                <View key={m.id} style={styles.memoryCard}>
+                  <Text style={styles.memoryTime}>
+                    {new Date(m.createdAt).toLocaleTimeString()}
+                  </Text>
+                  <Text style={styles.memorySummary}>{m.summary}</Text>
+                  <Text style={styles.memoryRaw} numberOfLines={2}>
+                    {m.rawText}
+                  </Text>
+                </View>
+              ))
+            )}
+          </ScrollView>
+        </Animated.View>
+      </View>
+    </TouchableWithoutFeedback>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 24, paddingTop: 48 },
-  title: { fontSize: 28, fontWeight: '700', textAlign: 'center', marginBottom: 8 },
-  subtitle: { fontSize: 14, textAlign: 'center', marginBottom: 24, opacity: 0.8 },
-  status: { fontSize: 12, textAlign: 'center', marginBottom: 12, opacity: 0.7 },
-  input: {
-    borderWidth: 1,
-    borderRadius: 8,
-    padding: 10,
+  container: {
+    flex: 1,
+    backgroundColor: '#0b0c10',
+  },
+  mainContent: {
+    flex: 1,
+    paddingHorizontal: 24,
+    paddingTop: 48,
+    paddingBottom: 8,
+  },
+  title: {
+    fontSize: 30,
+    fontWeight: '700',
+    textAlign: 'center',
+    marginBottom: 6,
+    color: '#ffffff',
+  },
+  subtitle: {
+    fontSize: 14,
+    textAlign: 'center',
+    marginBottom: 20,
+    color: '#b0b0b0',
+  },
+  status: {
+    fontSize: 12,
+    textAlign: 'center',
     marginBottom: 12,
+    color: '#aaaaaa',
   },
-  answerBox: {
-    marginTop: 16,
+  inputRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+  },
+  input: {
+    flex: 1,
     borderWidth: 1,
-    borderRadius: 8,
-    padding: 10,
+    borderColor: '#333',
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 12,
+    backgroundColor: '#111318',
+    color: '#ffffff',
+    fontSize: 14,
+    minHeight: 60,
+    textAlignVertical: 'top',
   },
-  answerLabel: { fontWeight: '600', marginBottom: 4 },
-  answerText: { fontSize: 14 },
-  saveButton: {
+  iconButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#1f2933',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 4,
+  },
+  iconButtonSmall: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#1f2933',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  iconText: {
+    fontSize: 18,
+    color: '#ffffff',
+  },
+  primaryButtonsRow: {
     marginTop: 8,
+    marginBottom: 12,
+    gap: 8,
+  },
+  primaryButton: {
+    backgroundColor: '#22c55e',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 16,
+    alignItems: 'center',
+  },
+  primaryButtonDisabled: {
+    backgroundColor: '#14532d',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 16,
+    alignItems: 'center',
+  },
+  primaryButtonText: {
+    color: '#0b0c10',
+    fontWeight: '700',
+    fontSize: 15,
+  },
+  secondaryButton: {
+    backgroundColor: '#111827',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 16,
+    alignItems: 'center',
+  },
+  secondaryButtonDisabled: {
+    backgroundColor: '#020617',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 16,
+    alignItems: 'center',
+  },
+  secondaryButtonText: {
+    color: '#e5e7eb',
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  navRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 8,
+    marginBottom: 8,
+  },
+  navButton: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 16,
+    backgroundColor: '#111827',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  navButtonText: {
+    fontSize: 14,
+    color: '#e5e7eb',
+    fontWeight: '600',
+  },
+  saveButton: {
+    marginTop: 4,
     marginBottom: 8,
     alignSelf: 'center',
-    paddingHorizontal: 16,
+    paddingHorizontal: 18,
     paddingVertical: 8,
-    borderRadius: 16,
+    borderRadius: 20,
     borderWidth: 1,
+    borderColor: '#374151',
+    backgroundColor: '#020617',
   },
-  saveButtonText: { fontSize: 14 },
-  timelineTitle: { marginTop: 16, fontSize: 16, fontWeight: '600' },
-  timeline: { marginTop: 8, flex: 1 },
-  empty: { fontSize: 12, opacity: 0.6 },
+  saveButtonText: {
+    fontSize: 13,
+    color: '#e5e7eb',
+    fontWeight: '500',
+  },
+  answerBox: {
+    marginTop: 8,
+    borderRadius: 16,
+    backgroundColor: '#020617',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: '#1f2933',
+    maxHeight: 200,
+  },
+  answerHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  answerLabel: {
+    fontWeight: '600',
+    color: '#e5e7eb',
+    fontSize: 14,
+  },
+  answerScroll: {
+    maxHeight: 160,
+  },
+  answerText: {
+    fontSize: 14,
+    color: '#d1d5db',
+  },
+  timelineTitle: {
+    marginTop: 4,
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#e5e7eb',
+    marginBottom: 4,
+  },
+  timeline: {
+    marginTop: 4,
+    flex: 1,
+  },
+  empty: {
+    fontSize: 12,
+    color: '#9ca3af',
+  },
   memoryCard: {
     paddingVertical: 8,
     borderBottomWidth: 1,
-    borderColor: '#eee',
+    borderColor: '#1f2933',
   },
-  memoryTime: { fontSize: 11, opacity: 0.6, marginBottom: 2 },
-  memorySummary: { fontSize: 14, fontWeight: '600' },
-  memoryRaw: { fontSize: 12, opacity: 0.8 },
+  memoryTime: {
+    fontSize: 11,
+    color: '#6b7280',
+    marginBottom: 2,
+  },
+  memorySummary: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#e5e7eb',
+  },
+  memoryRaw: {
+    fontSize: 12,
+    color: '#9ca3af',
+  },
+  bottomSheet: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: '#020617',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 16,
+    borderTopWidth: 1,
+    borderColor: '#1f2933',
+  },
+  sheetHandleContainer: {
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  sheetHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#4b5563',
+  },
 });
