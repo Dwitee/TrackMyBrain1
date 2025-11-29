@@ -1,7 +1,21 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, Button, StyleSheet, TextInput, ScrollView, TouchableOpacity } from 'react-native';
 import { useCactusLM } from 'cactus-react-native';
-import { initDb, insertMemory, getRecentMemories, type Memory } from '../db/memoryDb';
+import { initDb, insertMemory, getRecentMemories, getAllMemories, type Memory } from '../db/memoryDb';
+
+function cosineSim(a: number[], b: number[]): number {
+  if (a.length === 0 || b.length === 0 || a.length !== b.length) return 0;
+  let dot = 0;
+  let normA = 0;
+  let normB = 0;
+  for (let i = 0; i < a.length; i++) {
+    dot += a[i] * b[i];
+    normA += a[i] * a[i];
+    normB += b[i] * b[i];
+  }
+  if (normA === 0 || normB === 0) return 0;
+  return dot / (Math.sqrt(normA) * Math.sqrt(normB));
+}
 
 export default function HomeScreen() {
   // useCactusLM will manage state for us (tip #3 from hackathon)
@@ -69,6 +83,21 @@ export default function HomeScreen() {
     }
     const now = Date.now();
     const id = String(now);
+
+    let embedding: number[] | undefined = undefined;
+
+    try {
+      if (cactusLM.isDownloaded) {
+        const embResult: any = await cactusLM.embed({
+          text: rawText || summary,
+        });
+        // Handle possible shapes of the embed response
+        embedding = embResult?.embedding || embResult?.embeddings?.[0]?.embedding;
+      }
+    } catch (e) {
+      console.warn('Failed to compute embedding for memory', e);
+    }
+
     try {
       await insertMemory({
         id,
@@ -76,10 +105,76 @@ export default function HomeScreen() {
         rawText,
         summary,
         createdAt: now,
+        embedding,
       });
       await refreshMemories();
     } catch (e) {
       console.warn('Failed to save memory', e);
+    }
+  };
+
+  const handleAskFromMemories = async () => {
+    const question = userInput.trim();
+    if (!question) return;
+    if (!cactusLM.isDownloaded) return;
+
+    try {
+      // 1) Embed the question
+      const qEmbResult: any = await cactusLM.embed({ text: question });
+      const queryEmbedding: number[] =
+        qEmbResult?.embedding || qEmbResult?.embeddings?.[0]?.embedding || [];
+
+      if (!queryEmbedding.length) {
+        console.warn('No embedding produced for query');
+        return;
+      }
+
+      // 2) Load memories with embeddings
+      const all = await getAllMemories();
+      const withEmb = all.filter(m => m.embedding && m.embedding.length > 0);
+
+      if (withEmb.length === 0) {
+        // fallback: just answer without memories
+        handleAsk();
+        return;
+      }
+
+      // 3) Compute similarity
+      const scored = withEmb
+        .map(m => ({
+          memory: m,
+          score: cosineSim(queryEmbedding, m.embedding as number[]),
+        }))
+        .sort((a, b) => b.score - a.score);
+
+      const topK = scored.slice(0, 5).map(x => x.memory);
+
+      const context = topK
+        .map(
+          (m, i) =>
+            `${i + 1}. [${m.type}] ${new Date(m.createdAt).toLocaleString()} – ${
+              m.summary
+            }\n${m.rawText}`,
+        )
+        .join('\n\n');
+
+      const systemPrompt = `
+You are TrackMyBrain, my personal memory assistant.
+Use ONLY the memories below to answer the user's question.
+If something isn't covered by the memories, say you don't know.
+
+Memories:
+${context}
+      `.trim();
+
+      cactusLM.complete({
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: question },
+        ],
+      });
+    } catch (e) {
+      console.warn('Error in AskFromMemories', e);
     }
   };
 
@@ -115,6 +210,14 @@ export default function HomeScreen() {
             : 'Model downloading...'
         }
         onPress={handleAsk}
+        disabled={!cactusLM.isDownloaded}
+      />
+
+      <View style={{ height: 8 }} />
+
+      <Button
+        title="Ask from Memories"
+        onPress={handleAskFromMemories}
         disabled={!cactusLM.isDownloaded}
       />
 
