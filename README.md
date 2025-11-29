@@ -95,3 +95,163 @@ To learn more about React Native, take a look at the following resources:
 - [Learn the Basics](https://reactnative.dev/docs/getting-started) - a **guided tour** of the React Native **basics**.
 - [Blog](https://reactnative.dev/blog) - read the latest official React Native **Blog** posts.
 - [`@facebook/react-native`](https://github.com/facebook/react-native) - the Open Source; GitHub **repository** for React Native.
+
+# TrackMyBrain 🧠
+
+An **offline, on-device personal memory assistant** built with **React Native** and powered by **Cactus Compute** local LLMs. 
+
+TrackMyBrain lets you:
+- Ask questions to a fully local AI model (Qwen 0.6 / Liquid)
+- Save thoughts as memories
+- View your recent memories in a timeline
+- All data stays **private** and **on your device**
+
+This project is built for the **Cactus Mobile Agent Hackathon**.
+
+---
+
+## 🚀 Features
+
+- **Offline LLM** using `cactus-react-native`
+- **Local memory storage** with AsyncStorage
+- **Ask → Answer → Save as Memory** flow
+- **Timeline view** of recent memories
+- Fully private — nothing leaves the device
+
+Upcoming (in progress):
+- Embeddings + Local RAG recall
+- Snap Memory (Vision)
+- Voice Memory (STT/TTS)
+- Day-End Summary
+- Apple-Health-style UI
+
+---
+
+## 🛠️ Requirements
+Make sure your environment is set up:
+
+- Node.js 18+
+- Xcode (for iOS builds)
+- CocoaPods installed (`sudo gem install cocoapods`)
+- iOS Simulator or a physical device
+
+Follow the official RN guide if needed: https://reactnative.dev/docs/set-up-your-environment
+
+---
+
+## 📦 Installation
+
+Clone the repo:
+```sh
+git clone <your-repo-url>
+cd TrackMyBrain
+```
+
+Install dependencies:
+```sh
+npm install
+```
+
+Install Cactus SDK + dependencies:
+```sh
+npm install cactus-react-native react-native-nitro-modules
+npm install @react-native-async-storage/async-storage
+```
+
+Install iOS pods:
+```sh
+cd ios
+pod install
+cd ..
+```
+
+---
+
+## ▶️ Running the App
+
+Start Metro:
+```sh
+npm start
+```
+
+In another terminal, run iOS:
+```sh
+npm run ios
+```
+
+The app will launch in the simulator.
+
+---
+
+## 🤖 Model Download (Important)
+
+On first run, Cactus will download a small on-device model (~200MB). 
+
+You will see a progress indicator:
+```
+Downloading model: 32%
+```
+
+After the first download, the model is cached and **the app works fully offline**.
+
+---
+
+## 🧠 Using the App
+
+1. Type a question
+2. Tap **Ask TrackMyBrain**
+3. When the answer appears, tap **Save as Memory**
+4. Scroll down to see it appear in the **Recent Memories** timeline
+
+All memories are stored locally in AsyncStorage.
+
+---
+
+## 📁 Project Structure
+
+```
+src/
+  ai/                # Local-RAG, embeddings (coming soon)
+  db/
+    memoryDb.ts     # AsyncStorage memory database
+  screens/
+    HomeScreen.tsx  # Main UI
+```
+
+---
+
+## 🔧 Troubleshooting
+
+**Stuck at model download?**
+- Make sure you have internet for the first run.
+- Restart Metro: `npm start --reset-cache`.
+
+**iOS build errors?**
+```sh
+cd ios
+pod install
+cd ..
+```
+
+**App crashes with expo-modules-core errors?**
+- You installed Expo-sqlite or Expo-asset in a bare RN project.
+- Ensure these are removed (we use AsyncStorage instead):
+```sh
+npm uninstall expo-sqlite expo-asset
+```
+
+---
+
+## 📜 License
+MIT
+
+---
+
+## 🙌 Hackathon Notes
+This project follows the hackathon guidelines:
+- Uses small local models
+- Offline-first approach
+- Designed for fast iteration
+- Clean architecture for adding Vision/STT/RAG next
+
+Enjoy hacking! 🧠⚡
